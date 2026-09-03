@@ -12,10 +12,13 @@ valida o token nas rotas protegidas. Repositório **1/4** da solução.
 | 3 | [soat-fiap-oficina-infra-db](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-db) | Terraform do banco gerenciado (RDS PostgreSQL) |
 | 4 | [soat-fiap-oficina-mecanica-app](https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app) | Aplicação NestJS + manifestos K8s + docs |
 
-> **Status:** scaffold — a implementação é a
-> [US-F3-01](docs/user-stories/f3-01-serverless-cpf-auth.md). O gateway que a
-> invoca já existe
+> **Status:** implementada ([US-F3-01](docs/user-stories/f3-01-serverless-cpf-auth.md))
+> — código + testes (47, cobertura ≥ 80%) + Terraform da function. O gateway
+> que a invoca já existe
 > ([soat-fiap-oficina-infra-k8s/gateway](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-k8s/tree/main/gateway)).
+> Pendências conhecidas: a coluna `usuario.cpf` (fluxo staff) nasce na
+> migration da US-F3-03 no repo da aplicação, e a VPC/RDS (US-F3-04/05) são
+> pré-requisito do apply completo.
 
 ## Contrato
 
@@ -65,6 +68,32 @@ sequenceDiagram
     L-->>G: isAuthorized: true
     G->>G: encaminha ao backend (EKS)
 ```
+
+## Como testar e deployar
+
+```bash
+npm install
+npm test              # 47 testes unitários (CPF, casos de uso, contrato do token, handlers)
+npm run test:cov      # com gate de cobertura (80%)
+npm run typecheck
+
+# Empacotar (gera dist/lambda.zip via esbuild) e provisionar:
+npm run package
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # LabRole + ARNs dos secrets
+terraform init && terraform apply
+terraform output -raw function_arn             # -> auth_lambda_arn do gateway
+```
+
+A function sobe **fora de VPC** enquanto `vpc_subnet_ids` estiver vazio
+(suficiente para smoke test do authorizer); para alcançar o RDS, preencher com
+as subnets privadas da US-F3-05.
+
+Estrutura do código (DDD enxuto): `src/domain` (CPF puro) →
+`src/application` (casos de uso com dependências injetadas) →
+`src/infrastructure` (JWT, Secrets Manager, RDS, logs JSON) →
+`src/handlers` + `src/index.ts` (handler único que despacha auth × authorizer
+pelo formato do evento).
 
 ## Tecnologias
 

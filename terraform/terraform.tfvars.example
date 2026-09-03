@@ -1,0 +1,9 @@
+# Copie para terraform.tfvars e preencha. Rode `npm run package` antes do apply.
+
+lab_role_arn   = "arn:aws:iam::123456789012:role/LabRole"
+jwt_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:oficina/jwt-secret-AbCdEf"
+db_secret_arn  = "arn:aws:secretsmanager:us-east-1:123456789012:secret:oficina/database-url-GhIjKl"
+
+# Preencher quando a VPC existir (US-F3-05) — sem isso a function nao alcanca o RDS
+# vpc_subnet_ids         = ["subnet-0aaa1111bbb22222c", "subnet-0ddd3333eee44444f"]
+# vpc_security_group_ids = ["sg-0123456789abcdef0"]

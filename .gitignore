@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Terraform — nunca versionar state nem tfvars reais
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
