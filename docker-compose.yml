@@ -1,0 +1,39 @@
+# Ambiente local completo: a Lambda no Runtime Interface Emulator (porta 9000)
+# + Postgres com a tabela `cliente` populada (local/init.sql).
+#
+#   docker compose up --build -d
+#   curl -s localhost:9000/2015-03-31/functions/function/invocations \
+#     -d '{"body":"{\"cpf\":\"529.982.247-25\"}"}'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: oficina_mecanica
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./local/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d oficina_mecanica']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  lambda:
+    build: .
+    ports:
+      - '9000:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-segredo-local-de-teste-com-32-chars}
+      JWT_ISSUER: ${JWT_ISSUER:-oficina-auth-lambda}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oficina_mecanica?schema=public
+      DB_SSL: 'false'
+      CLIENTE_STATUS_COLUMN: ativo
+      LOG_LEVEL: debug

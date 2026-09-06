@@ -1,0 +1,138 @@
+name: CD - Deploy da Lambda
+
+# Deploy automatico do CODIGO da function:
+#   push em `homolog` -> ambiente de homologacao
+#   push em `main`    -> ambiente de producao
+#
+# A infraestrutura (function, IAM, VPC, secrets) e criada/alterada pelo
+# workflow `infra.yml` (Terraform). Aqui so publicamos uma nova versao do
+# codigo e movemos o alias do ambiente — deploy rapido e reversivel.
+
+on:
+  push:
+    branches: [main, homolog]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # necessario para OIDC
+
+concurrency:
+  group: cd-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy (${{ github.ref_name == 'main' && 'producao' || 'homologacao' }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'homolog' }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME }}
+      ALIAS: ${{ github.ref_name == 'main' && 'prod' || 'homolog' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Ha credenciais AWS configuradas?
+        id: guard
+        run: |
+          if [ -n "${{ secrets.AWS_ROLE_ARN }}" ] || [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo 'configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::Ambiente AWS ainda nao configurado (sem AWS_ROLE_ARN/AWS_ACCESS_KEY_ID). Deploy ignorado — veja README secao 6.2."
+          fi
+
+      - run: npm ci
+
+      - name: Testes (barreira antes do deploy)
+        run: npm run test:cov
+
+      - name: Empacotar (dist/index.js -> lambda.zip)
+        run: npm run package
+
+      - name: Credenciais AWS
+        if: steps.guard.outputs.configured == 'true'
+        uses: ./.github/actions/aws-credentials
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Conferir a function
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          if [ -z "$FUNCTION_NAME" ]; then
+            echo "::error::Defina a variavel de ambiente LAMBDA_FUNCTION_NAME no GitHub Environment (Settings > Environments)."
+            exit 1
+          fi
+          if ! aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+            echo "::error::Function '$FUNCTION_NAME' nao existe. Rode o workflow 'Infra - Terraform' (apply) antes do primeiro deploy."
+            exit 1
+          fi
+
+      - name: Publicar nova versao do codigo
+        id: publish
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://lambda.zip \
+            --no-cli-pager >/dev/null
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+
+          VERSION=$(aws lambda publish-version \
+            --function-name "$FUNCTION_NAME" \
+            --description "${GITHUB_REF_NAME}@${GITHUB_SHA::7}" \
+            --query Version --output text)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versao publicada: $VERSION"
+
+      - name: Apontar o alias ${{ env.ALIAS }} para a nova versao
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          VERSION="${{ steps.publish.outputs.version }}"
+          if aws lambda get-alias --function-name "$FUNCTION_NAME" --name "$ALIAS" >/dev/null 2>&1; then
+            aws lambda update-alias --function-name "$FUNCTION_NAME" --name "$ALIAS" \
+              --function-version "$VERSION" --no-cli-pager >/dev/null
+          else
+            aws lambda create-alias --function-name "$FUNCTION_NAME" --name "$ALIAS" \
+              --function-version "$VERSION" --no-cli-pager >/dev/null
+          fi
+
+      - name: Smoke test (CPF invalido deve responder 422)
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME:$ALIAS" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"body":"{\"cpf\":\"11111111111\"}"}' \
+            --no-cli-pager response.json >/dev/null
+          cat response.json
+          STATUS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('response.json','utf8')).statusCode)")
+          if [ "$STATUS" != "422" ]; then
+            echo "::error::Smoke test falhou: statusCode=$STATUS (esperado 422)."
+            exit 1
+          fi
+
+      - name: Resumo do deploy
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          {
+            echo "### Deploy concluido"
+            echo ""
+            echo "| Item | Valor |"
+            echo "|---|---|"
+            echo "| Ambiente | ${{ job.status == 'success' && (github.ref_name == 'main' && 'producao' || 'homologacao') || '-' }} |"
+            echo "| Function | \`$FUNCTION_NAME\` |"
+            echo "| Alias | \`$ALIAS\` |"
+            echo "| Versao | \`${{ steps.publish.outputs.version }}\` |"
+            echo "| Commit | \`${GITHUB_SHA::7}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
