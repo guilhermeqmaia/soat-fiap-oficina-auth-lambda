@@ -1,5 +1,5 @@
 import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
-import { AccessTokenClaims, Cliente, IssuedToken, TokenIssuer } from '../application/ports';
+import { AccessTokenClaims, IssuedToken, TokenIssuer, TokenSubject } from '../application/ports';
 import { Config } from '../config/env';
 
 /**
@@ -12,7 +12,7 @@ export class JwtTokenIssuer implements TokenIssuer {
     private readonly config: Config,
   ) {}
 
-  async issue({ cliente, role }: { cliente: Cliente; role: string }): Promise<IssuedToken> {
+  async issue({ cliente, role }: { cliente: TokenSubject; role: string }): Promise<IssuedToken> {
     const options: SignOptions = {
       algorithm: 'HS256',
       expiresIn: this.config.jwtExpiresIn as NonNullable<SignOptions['expiresIn']>,

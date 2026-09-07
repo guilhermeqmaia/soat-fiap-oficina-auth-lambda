@@ -30,11 +30,15 @@ export function isValidCpf(input: string): boolean {
   return secondDigit === Number(cpf[10]);
 }
 
-/** `12345678909` -> `123.***.**9-09`: suficiente para suporte, sem vazar o CPF. */
+/**
+ * `12345678909` -> `***.***.***-09`: expoe apenas os digitos verificadores,
+ * seguindo o padrao de mascaramento do monolito (mesmo formato nos dois lados
+ * para a correlacao de logs — US-F3-09).
+ */
 export function maskCpf(input: string): string {
   const cpf = normalizeCpf(input);
   if (cpf.length !== 11) return '***';
-  return `${cpf.slice(0, 3)}.***.**${cpf.slice(8, 9)}-${cpf.slice(9)}`;
+  return `***.***.***-${cpf.slice(9)}`;
 }
 
 /** Formata para exibicao: `123.456.789-09`. */

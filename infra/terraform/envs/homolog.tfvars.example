@@ -7,8 +7,11 @@ project     = "oficina"
 # repositorio para gerar a role OIDC do GitHub Actions.
 # AWS Academy/Learner Lab: use a LabRole e deixe github_repository vazio
 # (nesse caso o deploy usa AWS_ACCESS_KEY_ID/SECRET/SESSION_TOKEN).
-lambda_role_arn   = ""
-github_repository = "engineercodeprojects/software-architecture-tech-challenge-lambda"
+# Academy: sempre a LabRole (o lab nao permite criar IAM roles)
+lambda_role_arn   = "arn:aws:iam::123456789012:role/LabRole"
+# Vazio no Academy (nada de IAM); em conta propria use o SEU repo, ex.:
+# github_repository = "guilhermeqmaia/soat-fiap-oficina-auth-lambda"
+github_repository = ""
 # create_github_oidc_provider = true  # apenas se a conta ainda nao tem o provider
 
 # --- Segredos ----------------------------------------------------------------

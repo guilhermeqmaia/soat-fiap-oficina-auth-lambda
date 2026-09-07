@@ -28,7 +28,25 @@ describe('loadConfig', () => {
     expect(config.jwtIssuer).toBe('oficina-auth-lambda');
     expect(config.jwtExpiresIn).toBe('1h');
     expect(config.clienteRole).toBe('CLIENTE');
+    expect(config.usuarioTable).toBe('usuario');
+    expect(config.usuarioCpfColumn).toBe('cpf');
     expect(config.dbSsl).toBe(true);
+  });
+
+  it('converte JWT_EXPIRES_IN numerico para number (segundos, nao ms)', () => {
+    process.env['JWT_SECRET'] = 's';
+    process.env['DATABASE_URL'] = 'postgresql://u:p@h:5432/d';
+    process.env['JWT_EXPIRES_IN'] = '3600';
+
+    expect(loadConfig().jwtExpiresIn).toBe(3600);
+  });
+
+  it('rejeita JWT_EXPIRES_IN numerico nao-positivo', () => {
+    process.env['JWT_SECRET'] = 's';
+    process.env['DATABASE_URL'] = 'postgresql://u:p@h:5432/d';
+    process.env['JWT_EXPIRES_IN'] = '0';
+
+    expect(() => loadConfig()).toThrow(/JWT_EXPIRES_IN/);
   });
 
   it('exige segredo de JWT (env ou Secrets Manager)', () => {

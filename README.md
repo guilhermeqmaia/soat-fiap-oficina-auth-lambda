@@ -20,6 +20,16 @@ Gateway, validando o token nas rotas protegidas.
 | 4   | Verifica o **status** do cliente (coluna configurável)                                | inativo → `403`      |
 | 5   | Assina e devolve um **JWT HS256** com as claims do cliente                            | `200`                |
 
+**Fluxo staff (RFC-0003, sancionado pelo professor no fórum):** com
+`{ "cpf": "...", "senha": "..." }` no body, a mesma rota autentica o staff
+(ADMIN/ATENDENTE/MECANICO/ESTOQUISTA) — consulta `usuario` pelo CPF, confere a
+senha (bcrypt, mesmo hash `$2b$` do monólito) e emite o token com a **role do
+usuário**. A presença de `senha` seleciona o fluxo.
+
+> Dependência de schema: a coluna `usuario.cpf` (CPF único, normalizado,
+> associado ao usuário) nasce na **migration da US-F3-03** no repo da
+> aplicação — dono do schema. Até lá o fluxo staff responde `404`.
+
 ```
 Cliente ──POST /auth──► API Gateway (HTTP API) ──► Lambda (handler `auth`)
                                                      │  valida CPF
@@ -51,7 +61,7 @@ Cliente ──GET /ordens (Authorization: Bearer …)──► API Gateway
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tokenType": "Bearer",
   "expiresAt": "2026-01-01T12:00:00.000Z",
-  "cliente": { "id": "uuid", "nome": "Ana Souza", "cpf": "529.***.**7-25", "role": "CLIENTE" }
+  "cliente": { "id": "uuid", "nome": "Ana Souza", "cpf": "***.***.***-25", "role": "CLIENTE" }
 }
 ```
 
@@ -60,14 +70,19 @@ Erros: `{ "error": "<code>", "message": "...", "requestId": "..." }`.
 | Status | `error`                  | Quando                                                        |
 | ------ | ------------------------ | ------------------------------------------------------------- |
 | 400    | `CPF_AUSENTE`            | body ausente/inválido ou sem `cpf`                            |
+| 400    | `SENHA_AUSENTE`          | fluxo staff com `senha` vazia/não-string                      |
 | 422    | `CPF_INVALIDO`           | CPF com dígitos verificadores inválidos ou sequência repetida |
-| 404    | `CLIENTE_NAO_ENCONTRADO` | CPF válido, sem cliente cadastrado                            |
+| 404    | `CLIENTE_NAO_ENCONTRADO` | CPF válido, sem cliente cadastrado (fluxo cliente)            |
+| 404    | `USUARIO_NAO_ENCONTRADO` | CPF válido, sem usuário associado (fluxo staff)               |
 | 403    | `CLIENTE_INATIVO`        | cliente encontrado, mas inativo/bloqueado                     |
+| 403    | `USUARIO_INATIVO`        | usuário do staff desativado                                   |
+| 403    | `CREDENCIAIS_INVALIDAS`  | senha incorreta (mensagem genérica de propósito)              |
 | 500    | `ERRO_INTERNO`           | falha de banco/secret (detalhe só no log)                     |
 
-O CPF **nunca** aparece completo na resposta nem nos logs — apenas mascarado
-(`529.***.**7-25`). Todos os logs são JSON de linha única com `requestId` para
-correlação no CloudWatch.
+No fluxo staff o `200` devolve `usuario` no lugar de `cliente`, com a role do
+usuário. O CPF **nunca** aparece completo na resposta nem nos logs — apenas
+mascarado (`***.***.***-25`, mesmo formato do monólito). Todos os logs são
+JSON de linha única com `requestId` para correlação no CloudWatch.
 
 ### Claims do token (HS256)
 
@@ -94,8 +109,9 @@ correlação no CloudWatch.
 ```
 src/
   domain/        cpf.ts (normaliza/valida/mascara), errors.ts (erros com status HTTP)
-  application/   autenticar-cliente.use-case.ts, ports.ts (interfaces)
-  infra/         postgres-cliente.repository.ts, jwt-token-issuer.ts, secrets.ts
+  application/   autenticar-cliente.use-case.ts, autenticar-staff.use-case.ts, ports.ts
+  infra/         postgres-cliente.repository.ts, postgres-usuario.repository.ts,
+                 bcrypt-password-verifier.ts, jwt-token-issuer.ts, secrets.ts
   handlers/      auth.handler.ts, authorizer.handler.ts
   config/env.ts  toda a configuração vem de variável de ambiente
   container.ts   composição + cache entre invocações (pool e secrets)

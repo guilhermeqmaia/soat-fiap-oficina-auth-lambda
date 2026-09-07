@@ -23,11 +23,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.716.0",
+    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.146",
+    "@types/bcryptjs": "^2.4.6",
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.17.10",
