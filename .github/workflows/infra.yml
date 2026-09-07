@@ -1,0 +1,155 @@
+name: Infra - Terraform
+
+# Cria/atualiza a infraestrutura da Lambda (function, role, secrets, VPC, alias).
+# - push em main/homolog tocando infra/**: apply no ambiente correspondente
+# - workflow_dispatch: plan/apply/destroy sob demanda
+#
+# Rode este workflow uma vez antes do primeiro deploy de codigo (cd.yml).
+# Em PR o Terraform e conferido pelo job `fmt/validate` do CI (sem AWS).
+
+on:
+  push:
+    branches: [main, homolog]
+    paths: ['infra/**', '.github/workflows/infra.yml']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente
+        type: choice
+        options: [homolog, prod]
+        default: homolog
+      action:
+        description: Acao do Terraform
+        type: choice
+        options: [plan, apply, destroy]
+        default: plan
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: terraform-${{ inputs.environment || (github.ref_name == 'main' && 'prod' || 'homolog') }}
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: ${{ (inputs.environment || (github.ref_name == 'main' && 'prod' || 'homolog')) == 'prod' && 'production' || 'homolog' }}
+    defaults:
+      run:
+        working-directory: infra/terraform
+    env:
+      TF_ENV: ${{ inputs.environment || (github.ref_name == 'main' && 'prod' || 'homolog') }}
+      TF_ACTION: ${{ inputs.action || (github.event_name == 'push' && 'apply' || 'plan') }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ha credenciais AWS configuradas?
+        id: guard
+        run: |
+          if [ -n "${{ secrets.AWS_TERRAFORM_ROLE_ARN }}${{ secrets.AWS_ROLE_ARN }}" ] || [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo 'configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::Ambiente AWS ainda nao configurado. Terraform ignorado — veja README secao 6.2."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.configured == 'true'
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Gerar lambda.zip (o Terraform precisa do artefato inicial)
+        if: steps.guard.outputs.configured == 'true'
+        working-directory: .
+        run: |
+          npm ci
+          npm run package
+
+      - name: Credenciais AWS
+        if: steps.guard.outputs.configured == 'true'
+        uses: ./.github/actions/aws-credentials
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN || secrets.AWS_ROLE_ARN }}
+          access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.guard.outputs.configured == 'true'
+        with:
+          terraform_version: 1.9.8
+
+      - name: terraform init (state remoto em S3)
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          if [ -z "${{ secrets.TF_STATE_BUCKET }}" ]; then
+            echo "::error::Crie um bucket S3 para o state e configure o secret TF_STATE_BUCKET."
+            exit 1
+          fi
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=oficina-auth-lambda/${TF_ENV}.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true"
+
+      - name: Montar variaveis
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          {
+            echo "environment = \"${TF_ENV}\""
+            echo "aws_region  = \"${AWS_REGION}\""
+            echo "project     = \"${{ vars.PROJECT_NAME || 'oficina' }}\""
+            echo "lambda_role_arn = \"${{ vars.LAMBDA_ROLE_ARN }}\""
+            echo "github_repository = \"${{ vars.TF_GITHUB_REPOSITORY }}\""
+            echo "create_github_oidc_provider = ${{ vars.CREATE_GITHUB_OIDC_PROVIDER || 'false' }}"
+            echo "jwt_secret_id = \"${{ vars.JWT_SECRET_ID }}\""
+            echo "db_secret_id  = \"${{ vars.DB_SECRET_ID }}\""
+            echo "jwt_issuer    = \"${{ vars.JWT_ISSUER || 'oficina-auth-lambda' }}\""
+            echo "jwt_audience  = \"${{ vars.JWT_AUDIENCE }}\""
+            echo "jwt_expires_in = \"${{ vars.JWT_EXPIRES_IN || '1h' }}\""
+            echo "cliente_table  = \"${{ vars.CLIENTE_TABLE || 'cliente' }}\""
+            echo "cliente_cpf_column = \"${{ vars.CLIENTE_CPF_COLUMN || 'cpf_cnpj' }}\""
+            echo "cliente_status_column = \"${{ vars.CLIENTE_STATUS_COLUMN }}\""
+            echo "log_level = \"${{ vars.LOG_LEVEL || 'info' }}\""
+            echo "subnet_ids = ${{ vars.SUBNET_IDS || '[]' }}"
+            echo "security_group_ids = ${{ vars.SECURITY_GROUP_IDS || '[]' }}"
+          } > ci.auto.tfvars
+          # Valores sensiveis: so sao usados quando o secret correspondente
+          # ainda nao existe na conta (jwt_secret_id / db_secret_id vazios).
+          {
+            echo "jwt_secret_value = \"${{ secrets.JWT_SECRET_VALUE }}\""
+            echo "database_url     = \"${{ secrets.DATABASE_URL }}\""
+          } > secrets.auto.tfvars
+          sed 's/=.*/= (oculto)/' secrets.auto.tfvars
+          cat ci.auto.tfvars
+
+      - name: terraform plan
+        if: steps.guard.outputs.configured == 'true'
+        run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+
+      - name: terraform apply
+        if: steps.guard.outputs.configured == 'true' && env.TF_ACTION == 'apply'
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: terraform destroy
+        if: steps.guard.outputs.configured == 'true' && env.TF_ACTION == 'destroy'
+        run: terraform destroy -input=false -auto-approve
+
+      - name: Outputs
+        if: steps.guard.outputs.configured == 'true' && env.TF_ACTION == 'apply'
+        run: |
+          {
+            echo "### Terraform apply (${TF_ENV})"
+            echo ""
+            echo '```'
+            terraform output
+            echo '```'
+            echo ""
+            echo "Copie \`function_name\` para a variavel **LAMBDA_FUNCTION_NAME** e \`github_actions_role_arn\` para o secret **AWS_ROLE_ARN** do GitHub Environment."
+          } >> "$GITHUB_STEP_SUMMARY"

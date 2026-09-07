@@ -1,0 +1,20 @@
+environment = "prod"
+aws_region  = "us-east-1"
+project     = "oficina"
+
+lambda_role_arn   = ""
+github_repository = "engineercodeprojects/software-architecture-tech-challenge-lambda"
+
+jwt_secret_id = ""
+db_secret_id  = ""
+
+jwt_issuer     = "oficina-auth-lambda"
+jwt_expires_in = "15m"
+log_level      = "info"
+
+cliente_table         = "cliente"
+cliente_cpf_column    = "cpf_cnpj"
+cliente_status_column = ""
+
+subnet_ids         = []
+security_group_ids = []
