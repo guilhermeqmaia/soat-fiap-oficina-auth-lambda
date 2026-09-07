@@ -2,3 +2,6 @@ dist
 coverage
 node_modules
 package-lock.json
+
+# Skills do Claude (docs de tooling, fora do padrao prettier do codigo)
+.claude/
