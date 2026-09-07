@@ -27,8 +27,8 @@ describe('CPF', () => {
   });
 
   it('mascara o CPF para log sem expor os digitos do meio', () => {
-    expect(maskCpf('52998224725')).toBe('529.***.**7-25');
-    expect(maskCpf('529.982.247-25')).toBe('529.***.**7-25');
+    expect(maskCpf('52998224725')).toBe('***.***.***-25');
+    expect(maskCpf('529.982.247-25')).toBe('***.***.***-25');
     expect(maskCpf('123')).toBe('***');
   });
 

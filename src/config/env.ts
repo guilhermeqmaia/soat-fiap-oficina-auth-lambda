@@ -11,7 +11,12 @@ export interface Config {
   jwtSecretJsonKey: string;
   jwtIssuer: string;
   jwtAudience?: string;
-  jwtExpiresIn: string;
+  /**
+   * Expiracao do token. String numerica ("3600") e convertida para number
+   * (segundos): o jsonwebtoken interpreta number como segundos, mas string
+   * numerica cairia na lib `ms` como MILISSEGUNDOS — token de 3,6s.
+   */
+  jwtExpiresIn: string | number;
 
   /** Nome/ARN do secret com a connection string / credenciais do banco. */
   dbSecretId?: string;
@@ -36,6 +41,11 @@ export interface Config {
 
   /** Role emitida no token para clientes autenticados por CPF. */
   clienteRole: string;
+
+  /** Tabela e coluna de CPF do staff (a coluna nasce na migration da US-F3-03). */
+  usuarioTable: string;
+  usuarioCpfColumn: string;
+
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
 
@@ -64,6 +74,19 @@ function booleanFrom(name: string, fallback: boolean): boolean {
   return raw === 'true' || raw === '1' || raw === 'yes';
 }
 
+/**
+ * "3600" -> 3600 (segundos, semantica do jsonwebtoken para number); demais
+ * formatos ("1h", "15m") seguem como string para a lib `ms`.
+ */
+function expiresInFrom(raw: string): string | number {
+  if (!/^\d+$/.test(raw)) return raw;
+  const seconds = Number(raw);
+  if (seconds <= 0) {
+    throw new Error(`JWT_EXPIRES_IN deve ser positivo (recebido: ${raw})`);
+  }
+  return seconds;
+}
+
 /** Identificador SQL seguro (evita injecao via nome de tabela/coluna). */
 function identifier(name: string, value: string): string {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
@@ -77,7 +100,7 @@ export function loadConfig(): Config {
   const config: Config = {
     jwtSecretJsonKey: required('JWT_SECRET_JSON_KEY', 'JWT_SECRET'),
     jwtIssuer: required('JWT_ISSUER', 'oficina-auth-lambda'),
-    jwtExpiresIn: required('JWT_EXPIRES_IN', '1h'),
+    jwtExpiresIn: expiresInFrom(required('JWT_EXPIRES_IN', '1h')),
 
     dbSsl: booleanFrom('DB_SSL', true),
     dbConnectionTimeoutMs: numberFrom('DB_CONNECTION_TIMEOUT_MS', 5000),
@@ -93,6 +116,8 @@ export function loadConfig(): Config {
       .filter((value) => value !== ''),
 
     clienteRole: required('CLIENTE_ROLE', 'CLIENTE'),
+    usuarioTable: identifier('USUARIO_TABLE', required('USUARIO_TABLE', 'usuario')),
+    usuarioCpfColumn: identifier('USUARIO_CPF_COLUMN', required('USUARIO_CPF_COLUMN', 'cpf')),
     logLevel: ['debug', 'info', 'warn', 'error'].includes(logLevel) ? logLevel : 'info',
   };
 

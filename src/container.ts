@@ -1,9 +1,12 @@
 import { Pool } from 'pg';
 import { AutenticarClienteUseCase } from './application/autenticar-cliente.use-case';
+import { AutenticarStaffUseCase } from './application/autenticar-staff.use-case';
 import { TokenIssuer } from './application/ports';
 import { Config, loadConfig } from './config/env';
+import { BcryptPasswordVerifier } from './infra/bcrypt-password-verifier';
 import { JwtTokenIssuer } from './infra/jwt-token-issuer';
 import { PostgresClienteRepository } from './infra/postgres-cliente.repository';
+import { PostgresUsuarioRepository } from './infra/postgres-usuario.repository';
 import {
   buildDatabaseUrl,
   extractSecretValue,
@@ -16,6 +19,7 @@ export interface Container {
   config: Config;
   logger: Logger;
   autenticarCliente: AutenticarClienteUseCase;
+  autenticarStaff: AutenticarStaffUseCase;
   tokens: TokenIssuer;
 }
 
@@ -49,16 +53,22 @@ async function build(secrets: SecretsReader): Promise<Container> {
   const config = loadConfig();
   const logger = new Logger(config.logLevel);
 
-  const jwtSecret = config.jwtSecretId
-    ? extractSecretValue(await secrets.getSecretString(config.jwtSecretId), config.jwtSecretJsonKey)
-    : (config.jwtSecret as string);
-
-  const databaseUrl = config.dbSecretId
-    ? buildDatabaseUrl(await secrets.getSecretString(config.dbSecretId))
-    : (config.databaseUrl as string);
+  // As duas buscas ao Secrets Manager sao independentes: em paralelo o cold
+  // start paga apenas a mais lenta, nao a soma.
+  const [jwtSecret, databaseUrl] = await Promise.all([
+    config.jwtSecretId
+      ? secrets
+          .getSecretString(config.jwtSecretId)
+          .then((value) => extractSecretValue(value, config.jwtSecretJsonKey))
+      : Promise.resolve(config.jwtSecret as string),
+    config.dbSecretId
+      ? secrets.getSecretString(config.dbSecretId).then(buildDatabaseUrl)
+      : Promise.resolve(config.databaseUrl as string),
+  ]);
 
   pool ??= PostgresClienteRepository.createPool(databaseUrl, config);
   const clientes = new PostgresClienteRepository(pool, config);
+  const usuarios = new PostgresUsuarioRepository(pool, config);
   const tokens = new JwtTokenIssuer(jwtSecret, config);
 
   return {
@@ -66,5 +76,6 @@ async function build(secrets: SecretsReader): Promise<Container> {
     logger,
     tokens,
     autenticarCliente: new AutenticarClienteUseCase(clientes, tokens, config.clienteRole),
+    autenticarStaff: new AutenticarStaffUseCase(usuarios, new BcryptPasswordVerifier(), tokens),
   };
 }

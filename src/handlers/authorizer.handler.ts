@@ -67,7 +67,10 @@ export async function authorizerHandler(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger?.warn('Authorizer negou', { erro: message });
+    // Sem fallback, uma falha de bootstrap (getContainer) negaria TODAS as
+    // rotas protegidas sem deixar uma unica linha de log no CloudWatch.
+    const fallback = logger ?? new Logger('error', { requestId, route: 'authorizer' });
+    fallback.warn('Authorizer negou', { erro: message });
     return { isAuthorized: false };
   }
 }

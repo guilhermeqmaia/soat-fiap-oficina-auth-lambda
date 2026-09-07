@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const mockState: { rows: Record<string, unknown>[]; error?: Error } = { rows: [] };
@@ -74,6 +75,59 @@ describe('parseBody', () => {
   });
 });
 
+describe('POST /auth — fluxo staff (cpf + senha)', () => {
+  const SENHA = 's3nh4-f0rte';
+  const usuarioRow = () => ({
+    id: 'u1',
+    nome: 'Joao Mecanico',
+    role: 'MECANICO',
+    ativo: true,
+    senhaHash: bcrypt.hashSync(SENHA, 4),
+  });
+
+  it('200 com token carregando a role do usuario', async () => {
+    mockState.rows = [usuarioRow()];
+
+    const response = (await authHandler(
+      authEvent({ cpf: '529.982.247-25', senha: SENHA }),
+    )) as HttpLike;
+    const payload = body<{ accessToken: string; usuario: { cpf: string; role: string } }>(response);
+
+    expect(response.statusCode).toBe(200);
+    expect(payload.usuario.role).toBe('MECANICO');
+    expect(payload.usuario.cpf).toBe('***.***.***-25');
+    const claims = jwt.verify(payload.accessToken, SECRET) as Record<string, unknown>;
+    expect(claims).toMatchObject({ sub: 'u1', cpf: CPF, role: 'MECANICO' });
+  });
+
+  it('403 CREDENCIAIS_INVALIDAS para senha incorreta', async () => {
+    mockState.rows = [usuarioRow()];
+    const response = (await authHandler(authEvent({ cpf: CPF, senha: 'errada' }))) as HttpLike;
+    expect(response.statusCode).toBe(403);
+    expect(body<{ error: string }>(response).error).toBe('CREDENCIAIS_INVALIDAS');
+  });
+
+  it('403 USUARIO_INATIVO para usuario desativado', async () => {
+    mockState.rows = [{ ...usuarioRow(), ativo: false }];
+    const response = (await authHandler(authEvent({ cpf: CPF, senha: SENHA }))) as HttpLike;
+    expect(response.statusCode).toBe(403);
+    expect(body<{ error: string }>(response).error).toBe('USUARIO_INATIVO');
+  });
+
+  it('404 para CPF valido sem usuario associado', async () => {
+    mockState.rows = [];
+    const response = (await authHandler(authEvent({ cpf: CPF, senha: SENHA }))) as HttpLike;
+    expect(response.statusCode).toBe(404);
+    expect(body<{ error: string }>(response).error).toBe('USUARIO_NAO_ENCONTRADO');
+  });
+
+  it('400 SENHA_AUSENTE para senha vazia', async () => {
+    const response = (await authHandler(authEvent({ cpf: CPF, senha: '' }))) as HttpLike;
+    expect(response.statusCode).toBe(400);
+    expect(body<{ error: string }>(response).error).toBe('SENHA_AUSENTE');
+  });
+});
+
 describe('POST /auth', () => {
   it('200 com token para cliente existente', async () => {
     mockState.rows = [{ id: 'c1', nome: 'Ana Souza', cpf: '529.982.247-25' }];
@@ -83,7 +137,7 @@ describe('POST /auth', () => {
 
     expect(response.statusCode).toBe(200);
     expect(payload.cliente.role).toBe('CLIENTE');
-    expect(payload.cliente.cpf).toBe('529.***.**7-25'); // resposta nao devolve CPF completo
+    expect(payload.cliente.cpf).toBe('***.***.***-25'); // resposta nao devolve CPF completo
     const claims = jwt.verify(payload.accessToken, SECRET) as Record<string, unknown>;
     expect(claims).toMatchObject({
       sub: 'c1',

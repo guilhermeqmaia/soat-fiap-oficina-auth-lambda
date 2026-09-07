@@ -2,8 +2,11 @@ environment = "prod"
 aws_region  = "us-east-1"
 project     = "oficina"
 
-lambda_role_arn   = ""
-github_repository = "engineercodeprojects/software-architecture-tech-challenge-lambda"
+# Academy: sempre a LabRole (o lab nao permite criar IAM roles)
+lambda_role_arn   = "arn:aws:iam::123456789012:role/LabRole"
+# Vazio no Academy (nada de IAM); em conta propria use o SEU repo, ex.:
+# github_repository = "guilhermeqmaia/soat-fiap-oficina-auth-lambda"
+github_repository = ""
 
 jwt_secret_id = ""
 db_secret_id  = ""
