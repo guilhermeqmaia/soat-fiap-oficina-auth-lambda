@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 import { AuthError } from '../domain/errors';
 import { maskCpf } from '../domain/cpf';
-import { getContainer } from '../container';
+import { getAuthContainer } from '../container';
 import { errorResponse, HttpResponse, json } from '../shared/http';
 import { Logger } from '../shared/logger';
 
@@ -45,7 +45,7 @@ export async function authHandler(event: AuthEvent, context?: Context): Promise<
 
   let logger: Logger | undefined;
   try {
-    const container = await getContainer();
+    const container = await getAuthContainer();
     const { cpf, senha } = parseBody(event);
     const fluxo = senha !== undefined ? 'staff' : 'cliente';
     logger = container.logger.child({ requestId, route: 'POST /auth', fluxo });

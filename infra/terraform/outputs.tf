@@ -4,12 +4,12 @@ output "function_name" {
 }
 
 output "function_arn" {
-  description = "ARN da function (usado pelo API Gateway no repo da infra/app)."
+  description = "ARN NAO QUALIFICADO ($LATEST). Muda a cada `update-function-code`, antes de qualquer validacao — NAO use como alvo do API Gateway. Util para logs/console."
   value       = aws_lambda_function.auth.arn
 }
 
 output "function_alias_arn" {
-  description = "ARN do alias do ambiente."
+  description = "ARN do alias do ambiente — **este** e o valor de `auth_lambda_arn` no stage `gateway/` (repo soat-fiap-oficina-infra-k8s). O alias so avanca apos o smoke test da versao, entao o gateway nunca serve codigo nao validado."
   value       = aws_lambda_alias.environment.arn
 }
 
