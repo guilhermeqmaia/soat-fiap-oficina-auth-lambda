@@ -118,6 +118,25 @@ jobs:
             echo "cliente_status_column = \"${{ vars.CLIENTE_STATUS_COLUMN }}\""
             echo "log_level = \"${{ vars.LOG_LEVEL || 'info' }}\""
             echo "subnet_ids = ${{ vars.SUBNET_IDS || '[]' }}"
+            # Variaveis documentadas no README que nao tinham caminho ate a
+            # function: entram por extra_environment, emitidas SO quando
+            # definidas (o default continua sendo o do src/config/env.ts).
+            {
+              echo "extra_environment = {"
+              for pair in \
+                "JWT_SECRET_JSON_KEY=${{ vars.JWT_SECRET_JSON_KEY }}" \
+                "CLIENTE_ID_COLUMN=${{ vars.CLIENTE_ID_COLUMN }}" \
+                "CLIENTE_NOME_COLUMN=${{ vars.CLIENTE_NOME_COLUMN }}" \
+                "CLIENTE_ROLE=${{ vars.CLIENTE_ROLE }}" \
+                "USUARIO_TABLE=${{ vars.USUARIO_TABLE }}" \
+                "USUARIO_CPF_COLUMN=${{ vars.USUARIO_CPF_COLUMN }}" \
+                "DB_CONNECTION_TIMEOUT_MS=${{ vars.DB_CONNECTION_TIMEOUT_MS }}" \
+                "DB_QUERY_TIMEOUT_MS=${{ vars.DB_QUERY_TIMEOUT_MS }}" ; do
+                key="${pair%%=*}"; value="${pair#*=}"
+                [ -n "$value" ] && echo "  $key = \"$value\""
+              done
+              echo "}"
+            }
             echo "security_group_ids = ${{ vars.SECURITY_GROUP_IDS || '[]' }}"
           } > ci.auto.tfvars
           # Valores sensiveis: so sao usados quando o secret correspondente

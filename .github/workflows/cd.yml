@@ -95,7 +95,26 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Versao publicada: $VERSION"
 
-      - name: Apontar o alias ${{ env.ALIAS }} para a nova versao
+      # Testa a VERSAO recem-publicada antes de promove-la: se falhar, o alias
+      # (que o API Gateway invoca) continua na versao anterior — deploy
+      # realmente reversivel. Antes o smoke rodava DEPOIS do alias, sem gate.
+      - name: Smoke test da nova versao (CPF invalido deve responder 422)
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          VERSION="${{ steps.publish.outputs.version }}"
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME:$VERSION" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"body":"{\"cpf\":\"11111111111\"}"}' \
+            --no-cli-pager response.json >/dev/null
+          cat response.json
+          STATUS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('response.json','utf8')).statusCode)")
+          if [ "$STATUS" != "422" ]; then
+            echo "::error::Smoke test falhou na versao $VERSION (statusCode=$STATUS, esperado 422). O alias $ALIAS NAO foi movido."
+            exit 1
+          fi
+
+      - name: Promover o alias ${{ env.ALIAS }} para a versao validada
         if: steps.guard.outputs.configured == 'true'
         run: |
           VERSION="${{ steps.publish.outputs.version }}"
@@ -106,21 +125,7 @@ jobs:
             aws lambda create-alias --function-name "$FUNCTION_NAME" --name "$ALIAS" \
               --function-version "$VERSION" --no-cli-pager >/dev/null
           fi
-
-      - name: Smoke test (CPF invalido deve responder 422)
-        if: steps.guard.outputs.configured == 'true'
-        run: |
-          aws lambda invoke \
-            --function-name "$FUNCTION_NAME:$ALIAS" \
-            --cli-binary-format raw-in-base64-out \
-            --payload '{"body":"{\"cpf\":\"11111111111\"}"}' \
-            --no-cli-pager response.json >/dev/null
-          cat response.json
-          STATUS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('response.json','utf8')).statusCode)")
-          if [ "$STATUS" != "422" ]; then
-            echo "::error::Smoke test falhou: statusCode=$STATUS (esperado 422)."
-            exit 1
-          fi
+          echo "Alias $ALIAS -> versao $VERSION"
 
       - name: Resumo do deploy
         if: steps.guard.outputs.configured == 'true'
