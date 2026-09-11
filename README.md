@@ -28,15 +28,15 @@ flowchart LR
 (só CPF) e staff (CPF + senha) — e **Lambda Authorizer** que valida o token
 nas rotas protegidas do gateway.
 
-| Repositório | Papel |
-|---|---|
-| **1 · este repo** | **emite o JWT (CPF) e valida no gateway** |
-| [2 · infra-k8s](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-k8s) | API Gateway, cluster EKS e observabilidade |
-| [3 · infra-db](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-db) | RDS PostgreSQL gerenciado |
-| [4 · mecanica-app](https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app) | API NestJS, manifestos K8s e documentação |
+| Repositório                                                                          | Papel                                      |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| **1 · este repo**                                                                    | **emite o JWT (CPF) e valida no gateway**  |
+| [2 · infra-k8s](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-k8s)       | API Gateway, cluster EKS e observabilidade |
+| [3 · infra-db](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-db)         | RDS PostgreSQL gerenciado                  |
+| [4 · mecanica-app](https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app) | API NestJS, manifestos K8s e documentação  |
 
 **Contrato da API:** por ser uma function, não há Swagger próprio — o contrato
-de `POST /auth` e o do authorizer estão na seção *Contrato* abaixo. O Swagger
+de `POST /auth` e o do authorizer estão na seção _Contrato_ abaixo. O Swagger
 das APIs protegidas fica no
 [repo da aplicação](https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app#collection-das-apis).
 
