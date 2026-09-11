@@ -1,5 +1,7 @@
 # Oficina Mecânica — Lambda de autenticação por CPF (Fase 3)
 
+[![CI](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/ci.yml) [![CD](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/cd.yml) [![Infra](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/infra.yml/badge.svg?branch=main)](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/infra.yml)
+
 Função serverless que **autentica o cliente pelo CPF** e devolve um **JWT** usado
 para consumir as APIs protegidas da aplicação (monólito NestJS da Fase 2, exposto
 via API Gateway). A mesma função também atua como **Lambda Authorizer** do API
