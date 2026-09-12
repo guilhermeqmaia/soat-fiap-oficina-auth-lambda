@@ -32,6 +32,9 @@ locals {
 resource "aws_secretsmanager_secret" "jwt" {
   count = var.jwt_secret_id == "" ? 1 : 0
   name  = "${local.function_name}/jwt"
+  # Ambiente de demo sobe/derruba com frequencia: sem janela de recuperacao,
+  # senao o proximo apply falha com "already scheduled for deletion".
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "jwt" {
@@ -50,6 +53,9 @@ resource "aws_secretsmanager_secret_version" "jwt" {
 resource "aws_secretsmanager_secret" "db" {
   count = var.db_secret_id == "" ? 1 : 0
   name  = "${local.function_name}/db"
+  # Ambiente de demo sobe/derruba com frequencia: sem janela de recuperacao,
+  # senao o proximo apply falha com "already scheduled for deletion".
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "db" {
