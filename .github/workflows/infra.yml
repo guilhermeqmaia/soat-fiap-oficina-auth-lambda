@@ -117,7 +117,9 @@ jobs:
             echo "cliente_cpf_column = \"${{ vars.CLIENTE_CPF_COLUMN || 'cpf_cnpj' }}\""
             echo "cliente_status_column = \"${{ vars.CLIENTE_STATUS_COLUMN }}\""
             echo "log_level = \"${{ vars.LOG_LEVEL || 'info' }}\""
-            echo "subnet_ids = ${{ vars.SUBNET_IDS || '[]' }}"
+            # aspas simples: o valor e uma lista HCL com aspas duplas, que o bash
+            # engoliria dentro de "..." (a expressao ${{ }} e expandida antes).
+            echo 'subnet_ids = ${{ vars.SUBNET_IDS || '[]' }}'
             # Variaveis documentadas no README que nao tinham caminho ate a
             # function: entram por extra_environment, emitidas SO quando
             # definidas (o default continua sendo o do src/config/env.ts).
@@ -137,7 +139,7 @@ jobs:
               done
               echo "}"
             }
-            echo "security_group_ids = ${{ vars.SECURITY_GROUP_IDS || '[]' }}"
+            echo 'security_group_ids = ${{ vars.SECURITY_GROUP_IDS || '[]' }}'
           } > ci.auto.tfvars
           # Valores sensiveis: so sao usados quando o secret correspondente
           # ainda nao existe na conta (jwt_secret_id / db_secret_id vazios).
