@@ -372,7 +372,7 @@ Crie os GitHub Environments **`homolog`** e **`production`**
 | `TF_GITHUB_REPOSITORY`                                                      | —                     | `owner/repo` autorizado no OIDC                      |
 | `CREATE_GITHUB_OIDC_PROVIDER`                                               | `false`               | `true` se a conta ainda não tem o provider           |
 | `JWT_SECRET_ID`, `DB_SECRET_ID`                                             | —                     | secrets já existentes na conta                       |
-| `SUBNET_IDS`, `SECURITY_GROUP_IDS`                                          | `[]`                  | obrigatórias se o RDS está em subnet privada         |
+| `SUBNET_IDS`, `SECURITY_GROUP_IDS`                                          | `[]`                  | obrigatórias se o RDS está em subnet privada — outputs `private_subnet_ids` e `auth_lambda_security_group_id` do stage `cluster/` (repo infra-k8s); o `aws-deploy-all.sh` grava sozinho |
 | `CLIENTE_STATUS_COLUMN`                                                     | —                     | ex.: `ativo`                                         |
 | `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRES_IN`, `LOG_LEVEL`, `PROJECT_NAME` | ver tabela da seção 3 | ajustes finos                                        |
 
