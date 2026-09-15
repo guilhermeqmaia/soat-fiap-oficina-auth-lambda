@@ -1,5 +1,7 @@
 # Oficina Mecânica — Lambda de autenticação por CPF (Fase 3)
 
+**Deploy ativo (desde 15/09/2026):** `POST https://3jpje9so5m.execute-api.us-east-1.amazonaws.com/auth` (API Gateway → esta Lambda). Exemplo: `curl -X POST https://3jpje9so5m.execute-api.us-east-1.amazonaws.com/auth -H 'content-type: application/json' -d '{"cpf":"390.533.447-05"}'` → JWT. Ambiente efêmero (ADR-0008 do repo da app).
+
 [![CI](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/ci.yml) [![CD](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/cd.yml) [![Infra](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/infra.yml/badge.svg?branch=main)](https://github.com/guilhermeqmaia/soat-fiap-oficina-auth-lambda/actions/workflows/infra.yml)
 
 Função serverless que **autentica o cliente pelo CPF** e devolve um **JWT** usado
