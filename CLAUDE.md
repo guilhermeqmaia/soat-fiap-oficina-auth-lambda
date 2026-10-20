@@ -6,7 +6,7 @@ Repo **1/4** of the solution: the serverless CPF authentication function
 (AWS Lambda, Node.js/TypeScript). It is the **only JWT issuer** in the system
 and also serves as the **Lambda Authorizer** for the API Gateway
 (repo 2, `soat-fiap-oficina-infra-k8s/gateway`). The NestJS monolith
-(repo 4, `soat-fiap-oficina-mecanica-app`) is a resource server: it only
+(repo 4, `soat-fiap-oficina-os-service`) is a resource server: it only
 validates the tokens issued here.
 
 **Story:** implement via `docs/user-stories/f3-01-serverless-cpf-auth.md`

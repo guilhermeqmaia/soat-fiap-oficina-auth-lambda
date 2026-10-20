@@ -9,7 +9,7 @@ para consumir as APIs protegidas da aplicação (monólito NestJS da Fase 2, exp
 via API Gateway). A mesma função também atua como **Lambda Authorizer** do API
 Gateway, validando o token nas rotas protegidas.
 
-- Repositório da aplicação: https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app
+- Repositório da aplicação: https://github.com/guilhermeqmaia/soat-fiap-oficina-os-service
 - Runtime: Node.js 20 + TypeScript · Banco: PostgreSQL (RDS) · Segredos: AWS Secrets Manager
 
 ---
@@ -35,12 +35,12 @@ nas rotas protegidas do gateway.
 | **1 · este repo**                                                                    | **emite o JWT (CPF) e valida no gateway**  |
 | [2 · infra-k8s](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-k8s)       | API Gateway, cluster EKS e observabilidade |
 | [3 · infra-db](https://github.com/guilhermeqmaia/soat-fiap-oficina-infra-db)         | RDS PostgreSQL gerenciado                  |
-| [4 · mecanica-app](https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app) | API NestJS, manifestos K8s e documentação  |
+| [4 · os-service](https://github.com/guilhermeqmaia/soat-fiap-oficina-os-service) | API NestJS, manifestos K8s e documentação  |
 
 **Contrato da API:** por ser uma function, não há Swagger próprio — o contrato
 de `POST /auth` e o do authorizer estão na seção _Contrato_ abaixo. O Swagger
 das APIs protegidas fica no
-[repo da aplicação](https://github.com/guilhermeqmaia/soat-fiap-oficina-mecanica-app#collection-das-apis).
+[repo da aplicação](https://github.com/guilhermeqmaia/soat-fiap-oficina-os-service#collection-das-apis).
 
 ## 1. O que a função faz
 
